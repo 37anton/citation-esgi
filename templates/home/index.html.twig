@@ -4,6 +4,157 @@
 
 {% block body %}
 
-    <p class="bg-red-500">Homepage</p>
+    <div class="container mx-auto p-4">
+        <h1 class="text-3xl font-bold mb-4">Générer des citations</h1>
+        <button id="generate-citation-btn" class="bg-blue-500 text-white py-2 px-4 rounded mb-4">Générer une citation</button>
 
+        <table class="min-w-full bg-white">
+            <thead>
+                <tr>
+                    <th class="py-2 px-4 border-b-2 border-gray-300 text-left leading-tight">ID</th>
+                    <th class="py-2 px-4 border-b-2 border-gray-300 text-left leading-tight">Texte</th>
+                    <th class="py-2 px-4 border-b-2 border-gray-300 text-left leading-tight">Date</th>
+                    <th class="py-2 px-4 border-b-2 border-gray-300 text-left leading-tight">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="citations-table-body">
+                {% if citations is empty %}
+                    <tr id="no-citations-row">
+                        <td colspan="4" class="py-2 px-4 border-b border-gray-300 text-center">Aucune citation trouvée</td>
+                    </tr>
+                {% else %}
+                    {% for citation in citations %}
+                        <tr class="bg-gray-100" data-id="{{ citation.id }}">
+                            <td class="py-2 px-4 border-b border-gray-300">{{ citation.id }}</td>
+                            <td class="py-2 px-4 border-b border-gray-300">{{ citation.texte }}</td>
+                            <td class="py-2 px-4 border-b border-gray-300">{{ citation.date|date('Y-m-d H:i:s') }}</td>
+                            <td class="py-2 px-4 border-b border-gray-300">
+                                <button class="bg-red-500 text-white py-1 px-2 rounded delete-citation-btn" data-id="{{ citation.id }}">Supprimer</button>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+
+{% endblock %}
+
+{% block javascripts %}
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Génération citation
+        document.getElementById('generate-citation-btn').addEventListener('click', function() {
+            fetch('/generate-citation', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'Citation generated!') {
+                    addCitationToTable(data.citation);
+                } else {
+                    alert('Une erreur s\'est produite.');
+                }
+            })
+            .catch(error => {
+                console.error('Erreur:', error);
+                alert('Une erreur s\'est produite.');
+            });
+        });
+
+        // Suppression citation
+        document.querySelectorAll('.delete-citation-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const citationId = this.getAttribute('data-id');
+
+                fetch('/delete-citation', {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ id: citationId })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'Citation deleted') {
+                        removeCitationFromTable(data.id);
+                    } else {
+                        alert('Une erreur s\'est produite.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Erreur:', error);
+                    alert('Une erreur s\'est produite.');
+                });
+            });
+        });
+    });
+
+    function addCitationToTable(citation) {
+        const tableBody = document.getElementById('citations-table-body');
+        const noCitationsRow = document.getElementById('no-citations-row');
+
+        if (noCitationsRow) {
+            noCitationsRow.remove();
+        }
+
+        const newRow = document.createElement('tr');
+        newRow.setAttribute('class', 'bg-gray-100');
+        newRow.setAttribute('data-id', citation.id);
+        newRow.innerHTML = `
+            <td class="py-2 px-4 border-b border-gray-300">${citation.id}</td>
+            <td class="py-2 px-4 border-b border-gray-300">${citation.texte}</td>
+            <td class="py-2 px-4 border-b border-gray-300">${citation.date}</td>
+            <td class="py-2 px-4 border-b border-gray-300">
+                <button class="bg-red-500 text-white py-1 px-2 rounded delete-citation-btn" data-id="${citation.id}">Supprimer</button>
+            </td>
+        `;
+        tableBody.appendChild(newRow);
+
+        // Ajouter un écouteur d'événement pour le nouveau bouton de suppression
+        newRow.querySelector('.delete-citation-btn').addEventListener('click', function() {
+            const citationId = this.getAttribute('data-id');
+
+            fetch('/delete-citation', {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ id: citationId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'Citation deleted') {
+                    removeCitationFromTable(data.id);
+                } else {
+                    alert('Une erreur s\'est produite.');
+                }
+            })
+            .catch(error => {
+                console.error('Erreur:', error);
+                alert('Une erreur s\'est produite.');
+            });
+        });
+    }
+
+    function removeCitationFromTable(citationId) {
+        const row = document.querySelector(`tr[data-id='${citationId}']`);
+        if (row) {
+            row.remove();
+        }
+
+        const tableBody = document.getElementById('citations-table-body');
+        if (tableBody.children.length === 0) {
+            const noCitationsRow = document.createElement('tr');
+            noCitationsRow.setAttribute('id', 'no-citations-row');
+            noCitationsRow.innerHTML = `
+                <td colspan="4" class="py-2 px-4 border-b border-gray-300 text-center">Aucune citation trouvée</td>
+            `;
+            tableBody.appendChild(noCitationsRow);
+        }
+    }
+    </script>
 {% endblock %}
